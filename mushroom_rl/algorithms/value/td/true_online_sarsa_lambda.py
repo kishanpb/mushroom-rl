@@ -4,6 +4,7 @@ from mushroom_rl.algorithms.value.td import TD
 from mushroom_rl.approximators import Regressor
 from mushroom_rl.approximators.parametric import LinearApproximator
 from mushroom_rl.features import get_action_features
+from mushroom_rl.utils.parameters import to_parameter
 
 
 class TrueOnlineSARSALambda(TD):
@@ -18,18 +19,24 @@ class TrueOnlineSARSALambda(TD):
         Constructor.
 
         Args:
-            lambda_coeff (float): eligibility trace coefficient.
+            lambda_coeff ((float, Parameter)): eligibility trace coefficient.
 
         """
-        self._approximator_params = dict() if approximator_params is None else \
+        approximator_params = dict() if approximator_params is None else \
             approximator_params
 
-        self.Q = Regressor(LinearApproximator, **self._approximator_params)
-        self.e = np.zeros(self.Q.weights_size)
-        self._lambda = lambda_coeff
+        Q = Regressor(LinearApproximator, **approximator_params)
+        self.e = np.zeros(Q.weights_size)
+        self._lambda = to_parameter(lambda_coeff)
         self._q_old = None
 
-        super().__init__(mdp_info, policy, self.Q, learning_rate, features)
+        self._add_save_attr(
+            _q_old='numpy',
+            _lambda='mushroom',
+            e='numpy'
+        )
+
+        super().__init__(mdp_info, policy, Q, learning_rate, features)
 
     def _update(self, state, action, reward, next_state, absorbing):
         phi_state = self.phi(state)
@@ -40,11 +47,11 @@ class TrueOnlineSARSALambda(TD):
         if self._q_old is None:
             self._q_old = q_current
 
-        alpha = self.alpha(state, action)
+        alpha = self._alpha(state, action)
 
         e_phi = self.e.dot(phi_state_action)
-        self.e = self.mdp_info.gamma * self._lambda * self.e + alpha * (
-            1. - self.mdp_info.gamma * self._lambda * e_phi) * phi_state_action
+        self.e = self.mdp_info.gamma * self._lambda() * self.e + alpha * (
+            1. - self.mdp_info.gamma * self._lambda.get_value() * e_phi) * phi_state_action
 
         self.next_action = self.draw_action(next_state)
         phi_next_state = self.phi(next_state)

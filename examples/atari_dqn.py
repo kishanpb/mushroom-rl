@@ -8,9 +8,10 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-from mushroom_rl.algorithms.value import AveragedDQN, CategoricalDQN, DQN, DoubleDQN
+from mushroom_rl.algorithms.value import AveragedDQN, CategoricalDQN, DQN,\
+    DoubleDQN, MaxminDQN, DuelingDQN
 from mushroom_rl.approximators.parametric import TorchApproximator
-from mushroom_rl.core import Core
+from mushroom_rl.core import Core, Logger
 from mushroom_rl.environments import *
 from mushroom_rl.policy import EpsGreedy
 from mushroom_rl.utils.dataset import compute_metrics
@@ -95,22 +96,26 @@ class FeatureNetwork(nn.Module):
         return h
 
 
-def print_epoch(epoch):
-    print('################################################################')
-    print('Epoch: ', epoch)
-    print('----------------------------------------------------------------')
+def print_epoch(epoch, logger):
+    logger.info('################################################################')
+    logger.info('Epoch: %d' % epoch)
+    logger.info('----------------------------------------------------------------')
 
 
-def get_stats(dataset):
+def get_stats(dataset, logger):
     score = compute_metrics(dataset)
-    print(('min_reward: %f, max_reward: %f, mean_reward: %f,'
-          ' games_completed: %d' % score))
+    logger.info(('min_reward: %f, max_reward: %f, mean_reward: %f,'
+                ' games_completed: %d' % score))
 
     return score
 
 
 def experiment():
     np.random.seed()
+
+    logger = Logger(DQN.__name__, results_dir=None)
+    logger.strong_line()
+    logger.info('Experiment Algorithm: ' + DQN.__name__)
 
     # Argument parser
     parser = argparse.ArgumentParser()
@@ -152,14 +157,15 @@ def experiment():
                               'rmsprop')
 
     arg_alg = parser.add_argument_group('Algorithm')
-    arg_alg.add_argument("--algorithm", choices=['dqn', 'ddqn', 'adqn', 'cdqn'],
+    arg_alg.add_argument("--algorithm", choices=['dqn', 'ddqn', 'adqn', 'mmdqn',
+                                                 'cdqn', 'dueldqn'],
                          default='dqn',
                          help='Name of the algorithm. dqn is for standard'
                               'DQN, ddqn is for Double DQN and adqn is for'
                               'Averaged DQN.')
     arg_alg.add_argument("--n-approximators", type=int, default=1,
                          help="Number of approximators used in the ensemble for"
-                              "Averaged DQN.")
+                              "AveragedDQN or MaxminDQN.")
     arg_alg.add_argument("--batch-size", type=int, default=32,
                          help='Batch size for each fit of the network.')
     arg_alg.add_argument("--history-length", type=int, default=4,
@@ -202,10 +208,10 @@ def experiment():
     arg_utils = parser.add_argument_group('Utils')
     arg_utils.add_argument('--use-cuda', action='store_true',
                            help='Flag specifying whether to use the GPU.')
-    arg_utils.add_argument('--load-path', type=str,
-                           help='Path of the model to be loaded.')
     arg_utils.add_argument('--save', action='store_true',
                            help='Flag specifying whether to save the model.')
+    arg_utils.add_argument('--load-path', type=str,
+                           help='Path of the model to be loaded.')
     arg_utils.add_argument('--render', action='store_true',
                            help='Flag specifying whether to render the game.')
     arg_utils.add_argument('--quiet', action='store_true',
@@ -242,84 +248,50 @@ def experiment():
     else:
         raise ValueError
 
-    # Evaluation of the model provided by the user.
+    # Summary folder
+    folder_name = './logs/atari_' + args.algorithm + '_' + args.name +\
+        '_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    pathlib.Path(folder_name).mkdir(parents=True)
+
+    # Settings
+    if args.debug:
+        initial_replay_size = 50
+        max_replay_size = 500
+        train_frequency = 5
+        target_update_frequency = 10
+        test_samples = 20
+        evaluation_frequency = 50
+        max_steps = 1000
+    else:
+        initial_replay_size = args.initial_replay_size
+        max_replay_size = args.max_replay_size
+        train_frequency = args.train_frequency
+        target_update_frequency = args.target_update_frequency
+        test_samples = args.test_samples
+        evaluation_frequency = args.evaluation_frequency
+        max_steps = args.max_steps
+
+    # MDP
+    mdp = Atari(args.name, args.screen_width, args.screen_height,
+                ends_at_life=True, history_length=args.history_length,
+                max_no_op_actions=args.max_no_op_actions)
+
     if args.load_path:
-        # MDP
-        mdp = Atari(args.name, args.screen_width, args.screen_height,
-                    ends_at_life=False, history_length=args.history_length,
-                    max_no_op_actions=args.max_no_op_actions)
-
-        # Policy
-        epsilon_test = Parameter(value=args.test_exploration_rate)
-        pi = EpsGreedy(epsilon=epsilon_test)
-
-        # Approximator
-        input_shape = (args.history_length, args.screen_height,
-                       args.screen_width)
-        approximator_params = dict(
-            network=Network,
-            input_shape=input_shape,
-            output_shape=(mdp.info.action_space.n,),
-            n_actions=mdp.info.action_space.n,
-            load_path=args.load_path,
-            optimizer=optimizer,
-            loss=F.smooth_l1_loss,
-            use_cuda=args.use_cuda
-        )
-
-        approximator = TorchApproximator
-
         # Agent
-        algorithm_params = dict(
-            batch_size=1,
-            train_frequency=1,
-            target_update_frequency=1,
-            initial_replay_size=0,
-            max_replay_size=0
-        )
-        agent = DQN(mdp.info, pi, approximator,
-                    approximator_params=approximator_params, **algorithm_params)
+        agent = DQN.load(args.load_path)
+        epsilon_test = Parameter(value=args.test_exploration_rate)
+        agent.policy.set_epsilon(epsilon_test)
 
         # Algorithm
         core_test = Core(agent, mdp)
 
         # Evaluate model
-        pi.set_epsilon(epsilon_test)
         dataset = core_test.evaluate(n_steps=args.test_samples,
                                      render=args.render,
                                      quiet=args.quiet)
         get_stats(dataset)
+
     else:
-        # DQN learning run
-
-        # Summary folder
-        folder_name = './logs/atari_' + args.algorithm + '_' + args.name +\
-            '_' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        pathlib.Path(folder_name).mkdir(parents=True)
-
-        # Settings
-        if args.debug:
-            initial_replay_size = 50
-            max_replay_size = 500
-            train_frequency = 5
-            target_update_frequency = 10
-            test_samples = 20
-            evaluation_frequency = 50
-            max_steps = 1000
-        else:
-            initial_replay_size = args.initial_replay_size
-            max_replay_size = args.max_replay_size
-            train_frequency = args.train_frequency
-            target_update_frequency = args.target_update_frequency
-            test_samples = args.test_samples
-            evaluation_frequency = args.evaluation_frequency
-            max_steps = args.max_steps
-
-        # MDP
-        mdp = Atari(args.name, args.screen_width, args.screen_height,
-                    ends_at_life=True, history_length=args.history_length,
-                    max_no_op_actions=args.max_no_op_actions)
-
         # Policy
         epsilon = LinearParameter(value=args.initial_exploration_rate,
                                   threshold_value=args.final_exploration_rate,
@@ -335,11 +307,9 @@ def experiment():
                 return -torch.sum(target * torch.log(input))
 
         # Approximator
-        input_shape = (args.history_length, args.screen_height,
-                       args.screen_width)
         approximator_params = dict(
-            network=Network if args.algorithm != 'cdqn' else FeatureNetwork,
-            input_shape=input_shape,
+            network=Network if args.algorithm not in ['dueldqn', 'cdqn'] else FeatureNetwork,
+            input_shape=mdp.info.observation_space.shape,
             output_shape=(mdp.info.action_space.n,),
             n_actions=mdp.info.action_space.n,
             n_features=Network.n_features,
@@ -359,10 +329,9 @@ def experiment():
         else:
             replay_memory = None
 
-            # Agent
+        # Agent
         algorithm_params = dict(
             batch_size=args.batch_size,
-            n_approximators=args.n_approximators,
             target_update_frequency=target_update_frequency // train_frequency,
             replay_memory=replay_memory,
             initial_replay_size=initial_replay_size,
@@ -380,7 +349,17 @@ def experiment():
         elif args.algorithm == 'adqn':
             agent = AveragedDQN(mdp.info, pi, approximator,
                                 approximator_params=approximator_params,
+                                n_approximators=args.n_approximators,
                                 **algorithm_params)
+        elif args.algorithm == 'mmdqn':
+            agent = MaxminDQN(mdp.info, pi, approximator,
+                              approximator_params=approximator_params,
+                              n_approximators=args.n_approximators,
+                              **algorithm_params)
+        elif args.algorithm == 'dueldqn':
+            agent = DuelingDQN(mdp.info, pi,
+                               approximator_params=approximator_params,
+                               **algorithm_params)
         elif args.algorithm == 'cdqn':
             agent = CategoricalDQN(mdp.info, pi,
                                    approximator_params=approximator_params,
@@ -393,25 +372,24 @@ def experiment():
         # RUN
 
         # Fill replay memory with random dataset
-        print_epoch(0)
+        print_epoch(0, logger)
         core.learn(n_steps=initial_replay_size,
                    n_steps_per_fit=initial_replay_size, quiet=args.quiet)
 
         if args.save:
-            np.save(folder_name + '/weights-exp-0-0.npy',
-                    agent.approximator.get_weights())
+            agent.save(folder_name + '/agent_0.msh')
 
         # Evaluate initial policy
         pi.set_epsilon(epsilon_test)
         mdp.set_episode_end(False)
         dataset = core.evaluate(n_steps=test_samples, render=args.render,
                                 quiet=args.quiet)
-        scores.append(get_stats(dataset))
+        scores.append(get_stats(dataset, logger))
 
         np.save(folder_name + '/scores.npy', scores)
         for n_epoch in range(1, max_steps // evaluation_frequency + 1):
-            print_epoch(n_epoch)
-            print('- Learning:')
+            print_epoch(n_epoch, logger)
+            logger.info('- Learning:')
             # learning step
             pi.set_epsilon(epsilon)
             mdp.set_episode_end(True)
@@ -419,16 +397,15 @@ def experiment():
                        n_steps_per_fit=train_frequency, quiet=args.quiet)
 
             if args.save:
-                np.save(folder_name + '/weights-exp-0-' + str(n_epoch) + '.npy',
-                        agent.approximator.get_weights())
+                agent.save(folder_name + '/agent_' + str(n_epoch) + '.msh')
 
-            print('- Evaluation:')
+            logger.info('- Evaluation:')
             # evaluation step
             pi.set_epsilon(epsilon_test)
             mdp.set_episode_end(False)
             dataset = core.evaluate(n_steps=test_samples, render=args.render,
                                     quiet=args.quiet)
-            scores.append(get_stats(dataset))
+            scores.append(get_stats(dataset, logger))
 
             np.save(folder_name + '/scores.npy', scores)
 

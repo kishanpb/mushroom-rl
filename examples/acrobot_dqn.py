@@ -3,12 +3,14 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from mushroom_rl.algorithms.value import DQN
-from mushroom_rl.core import Core
+from mushroom_rl.core import Core, Logger
 from mushroom_rl.environments import *
 from mushroom_rl.policy import EpsGreedy
 from mushroom_rl.approximators.parametric.torch_approximator import *
 from mushroom_rl.utils.dataset import compute_J
 from mushroom_rl.utils.parameters import Parameter, LinearParameter
+
+from tqdm import tqdm, trange
 
 
 class Network(nn.Module):
@@ -46,6 +48,10 @@ class Network(nn.Module):
 def experiment(n_epochs, n_steps, n_steps_test):
     np.random.seed()
 
+    logger = Logger(DQN.__name__, results_dir=None)
+    logger.strong_line()
+    logger.info('Experiment Algorithm: ' + DQN.__name__)
+
     # MDP
     horizon = 1000
     gamma = 0.99
@@ -80,7 +86,7 @@ def experiment(n_epochs, n_steps, n_steps_test):
     # Agent
     agent = DQN(mdp.info, pi, TorchApproximator,
                 approximator_params=approximator_params, batch_size=batch_size,
-                n_approximators=1, initial_replay_size=initial_replay_size,
+                initial_replay_size=initial_replay_size,
                 max_replay_size=max_replay_size,
                 target_update_frequency=target_update_frequency)
 
@@ -93,18 +99,17 @@ def experiment(n_epochs, n_steps, n_steps_test):
     pi.set_epsilon(epsilon_test)
     dataset = core.evaluate(n_steps=n_steps_test, render=False)
     J = compute_J(dataset, gamma_eval)
-    print('J: ', np.mean(J))
+    logger.epoch_info(0, J=np.mean(J))
 
-    for n in range(n_epochs):
-        print('Epoch: ', n)
+    for n in trange(n_epochs):
         pi.set_epsilon(epsilon)
         core.learn(n_steps=n_steps, n_steps_per_fit=train_frequency)
         pi.set_epsilon(epsilon_test)
         dataset = core.evaluate(n_steps=n_steps_test, render=False)
         J = compute_J(dataset, gamma_eval)
-        print('J: ', np.mean(J))
+        logger.epoch_info(n+1, J=np.mean(J))
 
-    print('Press a button to visualize acrobot')
+    logger.info('Press a button to visualize acrobot')
     input()
     core.evaluate(n_episodes=5, render=True)
 

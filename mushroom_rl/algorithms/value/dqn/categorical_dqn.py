@@ -3,7 +3,7 @@ from copy import deepcopy
 import torch.nn as nn
 import torch.nn.functional as F
 
-from mushroom_rl.algorithms.value.dqn import DQN
+from mushroom_rl.algorithms.value.dqn import AbstractDQN
 from mushroom_rl.approximators.parametric.torch_approximator import *
 
 
@@ -56,7 +56,7 @@ class CategoricalNetwork(nn.Module):
                 return a_p
 
 
-class CategoricalDQN(DQN):
+class CategoricalDQN(AbstractDQN):
     """
     Categorical DQN algorithm.
     "A Distributional Perspective on Reinforcement Learning".
@@ -88,13 +88,21 @@ class CategoricalDQN(DQN):
         self._delta = (v_max - v_min) / (n_atoms - 1)
         self._a_values = np.arange(v_min, v_max + self._delta, self._delta)
 
+        self._add_save_attr(
+            _n_atoms='primitive',
+            _v_min='primitive',
+            _v_max='primitive',
+            _delta='primitive',
+            _a_values='numpy'
+        )
+
         super().__init__(mdp_info, policy, TorchApproximator, **params)
 
     def fit(self, dataset):
         self._replay_memory.add(dataset)
         if self._replay_memory.initialized:
             state, action, reward, next_state, absorbing, _ =\
-                self._replay_memory.get(self._batch_size)
+                self._replay_memory.get(self._batch_size())
 
             if self._clip_reward:
                 reward = np.clip(reward, -1, 1)
@@ -113,7 +121,7 @@ class CategoricalDQN(DQN):
             l = np.floor(b).astype(np.int)
             u = np.ceil(b).astype(np.int)
 
-            m = np.zeros((self._batch_size, self._n_atoms))
+            m = np.zeros((self._batch_size.get_value(), self._n_atoms))
             for i in range(self._n_atoms):
                 l[:, i][(u[:, i] > 0) * (l[:, i] == u[:, i])] -= 1
                 u[:, i][(l[:, i] < (self._n_atoms - 1)) * (l[:, i] == u[:, i])] += 1

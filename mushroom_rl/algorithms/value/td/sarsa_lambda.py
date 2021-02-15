@@ -1,6 +1,7 @@
 from mushroom_rl.algorithms.value.td import TD
 from mushroom_rl.utils.eligibility_trace import EligibilityTrace
 from mushroom_rl.utils.table import Table
+from mushroom_rl.utils.parameters import to_parameter
 
 
 class SARSALambda(TD):
@@ -14,15 +15,20 @@ class SARSALambda(TD):
         Constructor.
 
         Args:
-            lambda_coeff (float): eligibility trace coefficient;
+            lambda_coeff ((float, Parameter)): eligibility trace coefficient;
             trace (str, 'replacing'): type of eligibility trace to use.
 
         """
-        self.Q = Table(mdp_info.size)
-        self._lambda = lambda_coeff
+        Q = Table(mdp_info.size)
+        self._lambda = to_parameter(lambda_coeff)
 
-        self.e = EligibilityTrace(self.Q.shape, trace)
-        super().__init__(mdp_info, policy, self.Q, learning_rate)
+        self.e = EligibilityTrace(Q.shape, trace)
+        self._add_save_attr(
+            _lambda='mushroom',
+            e='mushroom'
+        )
+
+        super().__init__(mdp_info, policy, Q, learning_rate)
 
     def _update(self, state, action, reward, next_state, absorbing):
         q_current = self.Q[state, action]
@@ -33,8 +39,8 @@ class SARSALambda(TD):
         delta = reward + self.mdp_info.gamma * q_next - q_current
         self.e.update(state, action)
 
-        self.Q.table += self.alpha(state, action) * delta * self.e.table
-        self.e.table *= self.mdp_info.gamma * self._lambda
+        self.Q.table += self._alpha(state, action) * delta * self.e.table
+        self.e.table *= self.mdp_info.gamma * self._lambda()
 
     def episode_start(self):
         self.e.reset()

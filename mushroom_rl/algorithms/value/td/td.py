@@ -19,10 +19,12 @@ class TD(Agent):
             learning_rate (Parameter): the learning rate.
 
         """
-        self.alpha = learning_rate
+        self._alpha = learning_rate
 
         policy.set_q(approximator)
-        self.approximator = approximator
+        self.Q = approximator
+
+        self._add_save_attr(_alpha='mushroom', Q='mushroom')
 
         super().__init__(mdp_info, policy, features)
 
@@ -67,3 +69,6 @@ class TD(Agent):
 
         """
         pass
+
+    def _post_load(self):
+        self.policy.set_q(self.Q)

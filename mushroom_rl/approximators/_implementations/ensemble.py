@@ -1,27 +1,36 @@
 import numpy as np
 from sklearn.exceptions import NotFittedError
 
+from mushroom_rl.core import Serializable
 
-class Ensemble(object):
+
+class Ensemble(Serializable):
     """
     This class is used to create an ensemble of regressors.
 
     """
-    def __init__(self, model, n_models, **params):
+    def __init__(self, model, n_models, prediction='mean', **params):
         """
         Constructor.
 
         Args:
-            approximator (object): the model class to approximate the
+            approximator (class): the model class to approximate the
                 Q-function.
             n_models (int): number of regressors in the ensemble;
-            **params (dict): parameters dictionary to create each regressor.
+            prediction (str, ['mean', 'sum', 'min', 'max']): the type of
+                prediction to make;
+            **params: parameters dictionary to create each regressor.
 
         """
         self._model = list()
+        self._prediction = prediction
 
         for _ in range(n_models):
             self._model.append(model(**params))
+
+        self._add_save_attr(
+            _model=self._get_serialization_method(model)
+        )
 
     def fit(self, *z, idx=None, **fit_params):
         """
@@ -29,10 +38,10 @@ class Ensemble(object):
         model otherwise.
 
         Args:
-            *z (list): a list containing the inputs to use to predict with each
+            *z: a list containing the inputs to use to predict with each
                 regressor of the ensemble;
             idx (int, None): index of the model to fit;
-            **fit_params (dict): other params.
+            **fit_params: other params.
 
         """
         if idx is None:
@@ -41,20 +50,20 @@ class Ensemble(object):
         else:
             self[idx].fit(*z, **fit_params)
 
-    def predict(self, *z, idx=None, prediction='mean', compute_variance=False,
+    def predict(self, *z, idx=None, prediction=None, compute_variance=False,
                 **predict_params):
         """
         Predict.
 
         Args:
-            *z (list): a list containing the inputs to use to predict with each
+            *z: a list containing the inputs to use to predict with each
                 regressor of the ensemble;
             idx (int, None): index of the model to use for prediction;
-            prediction (str, 'mean'): the type of prediction to make. It can
-                be a 'mean' of the ensembles, or a 'sum';
+            prediction (str, None): the type of prediction to make. When
+                provided, it overrides the ``prediction`` class attribute;
             compute_variance (bool, False): whether to compute the variance
                 of the prediction or not;
-            **predict_params (dict): other parameters used by the predict method
+            **predict_params: other parameters used by the predict method
                 the regressor.
 
         Returns:
@@ -72,12 +81,16 @@ class Ensemble(object):
             if len(predictions) == 0:
                 raise NotFittedError
 
+            prediction = self._prediction if prediction is None else prediction
+
             if prediction == 'mean':
                 results = np.mean(predictions, axis=0)
             elif prediction == 'sum':
                 results = np.sum(predictions, axis=0)
             elif prediction == 'min':
-                results = np.amin(predictions, axis=0)
+                results = np.min(predictions, axis=0)
+            elif prediction == 'max':
+                results = np.max(predictions, axis=0)
             else:
                 raise ValueError
             if compute_variance:
