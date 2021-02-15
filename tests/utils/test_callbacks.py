@@ -4,7 +4,6 @@ from mushroom_rl.algorithms.value import SARSA
 from mushroom_rl.policy import EpsGreedy
 from mushroom_rl.utils.parameters import Parameter, ExponentialParameter
 from mushroom_rl.utils.callbacks import *
-import numpy as np
 
 
 def test_collect_dataset():
@@ -18,7 +17,7 @@ def test_collect_dataset():
     alpha = Parameter(0.2)
     agent = SARSA(mdp.info, pi, alpha)
 
-    core = Core(agent, mdp, callbacks_fit=[callback])
+    core = Core(agent, mdp, callbacks=[callback])
 
     core.learn(n_steps=10, n_steps_per_fit=1, quiet=True)
 
@@ -44,7 +43,7 @@ def test_collect_Q():
     callback_q = CollectQ(agent.Q)
     callback_max_q = CollectMaxQ(agent.Q, np.array([2]))
 
-    core = Core(agent, mdp, callbacks_fit=[callback_q, callback_max_q])
+    core = Core(agent, mdp, callbacks=[callback_q, callback_max_q])
 
     core.learn(n_steps=1000, n_steps_per_fit=1, quiet=True)
 
@@ -71,7 +70,7 @@ def test_collect_parameter():
 
     callback_eps = CollectParameters(eps, 1)
 
-    core = Core(agent, mdp, callbacks_fit=[callback_eps])
+    core = Core(agent, mdp, callbacks=[callback_eps])
 
     core.learn(n_steps=10, n_steps_per_fit=1, quiet=True)
 

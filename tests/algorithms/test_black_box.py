@@ -1,9 +1,6 @@
 import numpy as np
 import torch
-from datetime import datetime
-from helper.utils import TestUtils as tu
 
-from mushroom_rl.algorithms import Agent
 from mushroom_rl.algorithms.policy_search import PGPE, REPS, RWR
 from mushroom_rl.approximators import Regressor
 from mushroom_rl.core import Core
@@ -11,7 +8,7 @@ from mushroom_rl.approximators.parametric import LinearApproximator
 from mushroom_rl.distributions import GaussianDiagonalDistribution
 from mushroom_rl.environments import LQR
 from mushroom_rl.policy import DeterministicPolicy
-from mushroom_rl.utils.optimizers import AdaptiveOptimizer
+from mushroom_rl.utils.parameters import AdaptiveParameter
 
 
 def learn(alg, **alg_params):
@@ -31,16 +28,16 @@ def learn(alg, **alg_params):
     sigma = 1e-3 * np.ones(policy.weights_size)
     distribution = GaussianDiagonalDistribution(mu, sigma)
 
-    agent = alg(mdp.info, distribution, policy, **alg_params)
-    core = Core(agent, mdp)
+    agent_test = alg(mdp.info, distribution, policy, **alg_params)
+    core = Core(agent_test, mdp)
 
     core.learn(n_episodes=5, n_episodes_per_fit=5)
 
-    return agent
+    return distribution
 
 
 def test_RWR():
-    distribution = learn(RWR, beta=1.).distribution
+    distribution = learn(RWR, beta=1.)
     w = distribution.get_parameters()
     w_test = np.array([0.00086195, -0.00229678, 0.00173919, -0.0007568,
                        0.00073533, 0.00101203, 0.00119701, 0.00094453])
@@ -48,23 +45,8 @@ def test_RWR():
     assert np.allclose(w, w_test)
 
 
-def test_RWR_save(tmpdir):
-    agent_path = tmpdir / 'agent_{}'.format(datetime.now().strftime("%H%M%S%f"))
-
-    agent_save = learn(RWR, beta=1.)
-
-    agent_save.save(agent_path)
-    agent_load = Agent.load(agent_path)
-
-    for att, method in vars(agent_save).items():
-        save_attr = getattr(agent_save, att)
-        load_attr = getattr(agent_load, att)
-
-        tu.assert_eq(save_attr, load_attr)
-
-
 def test_REPS():
-    distribution = learn(REPS, eps=.7).distribution
+    distribution = learn(REPS, eps=.7)
     w = distribution.get_parameters()
     w_test = np.array([0.00050246, -0.00175432, 0.00128979, -0.00050779,
                        0.00071795, 0.00108254, 0.00098966, 0.00086633])
@@ -72,40 +54,10 @@ def test_REPS():
     assert np.allclose(w, w_test)
 
 
-def test_REPS_save(tmpdir):
-    agent_path = tmpdir / 'agent_{}'.format(datetime.now().strftime("%H%M%S%f"))
-
-    agent_save = learn(REPS, eps=.7)
-
-    agent_save.save(agent_path)
-    agent_load = Agent.load(agent_path)
-
-    for att, method in vars(agent_save).items():
-        save_attr = getattr(agent_save, att)
-        load_attr = getattr(agent_load, att)
-
-        tu.assert_eq(save_attr, load_attr)
-
-
 def test_PGPE():
-    distribution = learn(PGPE, optimizer=AdaptiveOptimizer(1.5)).distribution
+    distribution = learn(PGPE, learning_rate=AdaptiveParameter(1.5))
     w = distribution.get_parameters()
     w_test = np.array([0.02489092, 0.31062211, 0.2051433, 0.05959651,
                        -0.78302236, 0.77381954, 0.23676176, -0.29855654])
 
     assert np.allclose(w, w_test)
-
-
-def test_PGPE_save(tmpdir):
-    agent_path = tmpdir / 'agent_{}'.format(datetime.now().strftime("%H%M%S%f"))
-
-    agent_save = learn(PGPE, optimizer=AdaptiveOptimizer(1.5))
-
-    agent_save.save(agent_path)
-    agent_load = Agent.load(agent_path)
-
-    for att, method in vars(agent_save).items():
-        save_attr = getattr(agent_save, att)
-        load_attr = getattr(agent_load, att)
-
-        tu.assert_eq(save_attr, load_attr)

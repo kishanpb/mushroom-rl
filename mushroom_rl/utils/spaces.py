@@ -1,9 +1,7 @@
 import numpy as np
 
-from mushroom_rl.core import Serializable
 
-
-class Box(Serializable):
+class Box:
     """
     This class implements functions to manage continuous states and action
     spaces. It is similar to the ``Box`` class in ``gym.spaces.box``.
@@ -42,11 +40,6 @@ class Box(Serializable):
 
         assert self._low.shape == self._high.shape
 
-        self._add_save_attr(
-            _low='numpy',
-            _high='numpy'
-        )
-
     @property
     def low(self):
         """
@@ -74,11 +67,8 @@ class Box(Serializable):
         """
         return self._shape
 
-    def _post_load(self):
-        self._shape = self._low.shape
 
-
-class Discrete(Serializable):
+class Discrete:
     """
     This class implements functions to manage discrete states and action
     spaces. It is similar to the ``Discrete`` class in ``gym.spaces.discrete``.
@@ -94,11 +84,6 @@ class Discrete(Serializable):
         """
         self.values = np.arange(n)
         self.n = n
-
-        self._add_save_attr(
-            n='primitive',
-            values='numpy'
-        )
 
     @property
     def size(self):

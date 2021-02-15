@@ -12,7 +12,6 @@ from mushroom_rl.approximators.parametric import TorchApproximator
 from mushroom_rl.utils.torch import get_gradient, zero_grad, to_float_tensor
 from mushroom_rl.utils.dataset import parse_dataset, compute_J
 from mushroom_rl.utils.value_functions import compute_gae
-from mushroom_rl.utils.parameters import to_parameter
 
 
 class TRPO(Agent):
@@ -22,8 +21,10 @@ class TRPO(Agent):
     Schulman J. et al.. 2015.
 
     """
-    def __init__(self, mdp_info, policy, critic_params, ent_coeff=0., max_kl=.001, lam=1.,
-                 n_epochs_line_search=10, n_epochs_cg=10, cg_damping=1e-2, cg_residual_tol=1e-10,
+    def __init__(self, mdp_info, policy, critic_params,
+                 ent_coeff=0., max_kl=.001, lam=1.,
+                 n_epochs_line_search=10, n_epochs_cg=10,
+                 cg_damping=1e-2, cg_residual_tol=1e-10, quiet=True,
                  critic_fit_params=None):
         """
         Constructor.
@@ -32,58 +33,50 @@ class TRPO(Agent):
             policy (TorchPolicy): torch policy to be learned by the algorithm
             critic_params (dict): parameters of the critic approximator to
                 build;
-            ent_coeff ((float, Parameter), 0): coefficient for the entropy penalty;
-            max_kl ((float, Parameter), .001): maximum kl allowed for every policy
+            ent_coeff (float, 0): coefficient for the entropy penalty;
+            max_kl (float, .001): maximum kl allowed for every policy
                 update;
-            lam float((float, Parameter), 1.): lambda coefficient used by generalized
+            lam float(float, 1.): lambda coefficient used by generalized
                 advantage estimation;
-            n_epochs_line_search ((int, Parameter), 10): maximum number of iterations
+            n_epochs_line_search (int, 10): maximum number of iterations
                 of the line search algorithm;
-            n_epochs_cg ((int, Parameter), 10): maximum number of iterations of the
+            n_epochs_cg (int, 10): maximum number of iterations of the
                 conjugate gradient algorithm;
-            cg_damping ((float, Parameter), 1e-2): damping factor for the conjugate
+            cg_damping (float, 1e-2): damping factor for the conjugate
                 gradient algorithm;
-            cg_residual_tol ((float, Parameter), 1e-10): conjugate gradient residual
+            cg_residual_tol (float, 1e-10): conjugate gradient residual
                 tolerance;
+            quiet (bool, True): if true, the algorithm will print debug
+                information;
             critic_fit_params (dict, None): parameters of the fitting algorithm
                 of the critic approximator.
 
         """
-        self._critic_fit_params = dict(n_epochs=5) if critic_fit_params is None else critic_fit_params
+        self._critic_fit_params = dict(n_epochs=3) if critic_fit_params is None else critic_fit_params
 
-        self._n_epochs_line_search = to_parameter(n_epochs_line_search)
-        self._n_epochs_cg = to_parameter(n_epochs_cg)
-        self._cg_damping = to_parameter(cg_damping)
-        self._cg_residual_tol = to_parameter(cg_residual_tol)
+        self._n_epochs_line_search = n_epochs_line_search
+        self._n_epochs_cg = n_epochs_cg
+        self._cg_damping = cg_damping
+        self._cg_residual_tol = cg_residual_tol
 
-        self._max_kl = to_parameter(max_kl)
-        self._ent_coeff = to_parameter(ent_coeff)
+        self._max_kl = max_kl
+        self._ent_coeff = ent_coeff
 
-        self._lambda = to_parameter(lam)
+        self._lambda = lam
 
         self._V = Regressor(TorchApproximator, **critic_params)
 
         self._iter = 1
+        self._quiet = quiet
 
         self._old_policy = None
-
-        self._add_save_attr(
-            _critic_fit_params='pickle', 
-            _n_epochs_line_search='mushroom',
-            _n_epochs_cg='mushroom',
-            _cg_damping='mushroom',
-            _cg_residual_tol='mushroom',
-            _max_kl='mushroom',
-            _ent_coeff='mushroom',
-            _lambda='mushroom',
-            _V='mushroom',
-            _old_policy='mushroom',
-            _iter='primitive'
-        )
 
         super().__init__(mdp_info, policy, None)
 
     def fit(self, dataset):
+        if not self._quiet:
+            tqdm.write('Iteration ' + str(self._iter))
+
         state, action, reward, next_state, absorbing, last = parse_dataset(dataset)
         x = state.astype(np.float32)
         u = action.astype(np.float32)
@@ -93,7 +86,7 @@ class TRPO(Agent):
         obs = to_float_tensor(x, self.policy.use_cuda)
         act = to_float_tensor(u, self.policy.use_cuda)
         v_target, np_adv = compute_gae(self._V, x, xn, r, absorbing, last,
-                                       self.mdp_info.gamma, self._lambda())
+                                       self.mdp_info.gamma, self._lambda)
         np_adv = (np_adv - np.mean(np_adv)) / (np.std(np_adv) + 1e-8)
         adv = to_float_tensor(np_adv, self.policy.use_cuda)
 
@@ -121,7 +114,7 @@ class TRPO(Agent):
         self._V.fit(x, v_target, **self._critic_fit_params)
 
         # Print fit information
-        self._log_info(dataset, x, v_target, old_pol_dist)
+        self._print_fit_info(dataset, x, v_target, old_pol_dist)
         self._iter += 1
 
     def _fisher_vector_product(self, p, obs, old_pol_dist):
@@ -140,7 +133,7 @@ class TRPO(Agent):
         grads_v = torch.autograd.grad(kl_v, self.policy.parameters(), create_graph=False)
         flat_grad_grad_kl = torch.cat([grad.contiguous().view(-1) for grad in grads_v]).data
 
-        return flat_grad_grad_kl + p * self._cg_damping()
+        return flat_grad_grad_kl + p * self._cg_damping
 
     def _conjugate_gradient(self, b, obs, old_pol_dist):
         p = b.detach().cpu().numpy()
@@ -148,7 +141,7 @@ class TRPO(Agent):
         x = np.zeros_like(p)
         r2 = r.dot(r)
 
-        for i in range(self._n_epochs_cg()):
+        for i in range(self._n_epochs_cg):
             z = self._fisher_vector_product(p, obs, old_pol_dist).detach().cpu().numpy()
             v = r2 / p.dot(z)
             x += v * p
@@ -158,7 +151,7 @@ class TRPO(Agent):
             p = r + mu * p
 
             r2 = r2_new
-            if r2 < self._cg_residual_tol():
+            if r2 < self._cg_residual_tol:
                 break
         return x
 
@@ -166,7 +159,7 @@ class TRPO(Agent):
         # Compute optimal step size
         direction = self._fisher_vector_product(stepdir, obs, old_pol_dist).detach().cpu().numpy()
         shs = .5 * stepdir.dot(direction)
-        lm = np.sqrt(shs / self._max_kl())
+        lm = np.sqrt(shs / self._max_kl)
         full_step = stepdir / lm
         stepsize = 1.
 
@@ -176,14 +169,14 @@ class TRPO(Agent):
         # Perform Line search
         violation = True
 
-        for _ in range(self._n_epochs_line_search()):
+        for _ in range(self._n_epochs_line_search):
             theta_new = theta_old + full_step * stepsize
             self.policy.set_weights(theta_new)
 
             new_loss = self._compute_loss(obs, act, adv, old_log_prob)
             kl = self._compute_kl(obs, old_pol_dist)
             improve = new_loss - prev_loss
-            if kl <= self._max_kl.get_value() * 1.5 and improve >= 0:
+            if kl <= self._max_kl * 1.5 or improve >= 0:
                 violation = False
                 break
             stepsize *= .5
@@ -199,10 +192,10 @@ class TRPO(Agent):
         ratio = torch.exp(self.policy.log_prob_t(obs, act) - old_log_prob)
         J = torch.mean(ratio * adv)
 
-        return J + self._ent_coeff() * self.policy.entropy_t(obs)
+        return J + self._ent_coeff * self.policy.entropy_t(obs)
 
-    def _log_info(self, dataset, x, v_target, old_pol_dist):
-        if self._logger:
+    def _print_fit_info(self, dataset, x, v_target, old_pol_dist):
+        if not self._quiet:
             logging_verr = []
             torch_v_targets = torch.tensor(v_target, dtype=torch.float)
             for idx in range(len(self._V)):
@@ -216,8 +209,7 @@ class TRPO(Agent):
                 torch.distributions.kl.kl_divergence(old_pol_dist, new_pol_dist)
             )
             avg_rwd = np.mean(compute_J(dataset))
-            msg = "Iteration {}:\n\t\t\t\trewards {} vf_loss {}\n\t\t\t\tentropy {}  kl {}".format(
-                self._iter, avg_rwd, logging_verr, logging_ent, logging_kl)
-
-            self._logger.info(msg)
-            self._logger.weak_line()
+            tqdm.write("Iterations Results:\n\trewards {} vf_loss {}\n\tentropy {}  kl {}".format(
+                avg_rwd, logging_verr, logging_ent, logging_kl))
+            tqdm.write(
+                '--------------------------------------------------------------------------------------------------')

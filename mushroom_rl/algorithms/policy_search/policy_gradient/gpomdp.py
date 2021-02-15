@@ -10,8 +10,8 @@ class GPOMDP(PolicyGradient):
     2001.
 
     """
-    def __init__(self, mdp_info, policy, optimizer, features=None):
-        super().__init__(mdp_info, policy, optimizer, features)
+    def __init__(self, mdp_info, policy, learning_rate, features=None):
+        super().__init__(mdp_info, policy, learning_rate, features)
 
         self.sum_d_log_pi = None
         self.list_sum_d_log_pi = list()
@@ -24,17 +24,6 @@ class GPOMDP(PolicyGradient):
         self.baseline_den = list()
 
         self.step_count = 0
-
-        self._add_save_attr(
-            sum_d_log_pi='numpy',
-            list_sum_d_log_pi='pickle',
-            list_sum_d_log_pi_ep='pickle',
-            list_reward='pickle',
-            list_reward_ep='pickle',
-            baseline_num='pickle',
-            baseline_den='pickle',
-            step_count='numpy'
-        )
 
         # Ignore divide by zero
         np.seterr(divide='ignore', invalid='ignore')

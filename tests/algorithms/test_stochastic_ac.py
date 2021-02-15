@@ -1,9 +1,6 @@
 import numpy as np
 import torch
-from datetime import datetime
-from helper.utils import TestUtils as tu
 
-from mushroom_rl.algorithms import Agent
 from mushroom_rl.algorithms.actor_critic import StochasticAC, StochasticAC_AVG
 from mushroom_rl.core import Core
 from mushroom_rl.environments import *
@@ -63,11 +60,11 @@ def learn(alg):
 
     core.learn(n_episodes=2, n_episodes_per_fit=1)
 
-    return agent
+    return policy
 
 
 def test_stochastic_ac():
-    policy = learn(StochasticAC).policy
+    policy = learn(StochasticAC)
 
     w = policy.get_weights()
     w_test = np.array([-0.0026135, 0.01222979])
@@ -75,40 +72,10 @@ def test_stochastic_ac():
     assert np.allclose(w, w_test)
 
 
-def test_stochastic_ac_save(tmpdir):
-    agent_path = tmpdir / 'agent_{}'.format(datetime.now().strftime("%H%M%S%f"))
-
-    agent_save = learn(StochasticAC)
-
-    agent_save.save(agent_path)
-    agent_load = Agent.load(agent_path)
-
-    for att, method in vars(agent_save).items():
-        save_attr = getattr(agent_save, att)
-        load_attr = getattr(agent_load, att)
-
-        tu.assert_eq(save_attr, load_attr)
-
-
 def test_stochastic_ac_avg():
-    policy = learn(StochasticAC_AVG).policy
+    policy = learn(StochasticAC_AVG)
 
     w = policy.get_weights()
     w_test = np.array([-0.00295433, 0.01325534])
 
     assert np.allclose(w, w_test)
-
-
-def test_stochastic_ac_avg_save(tmpdir):
-    agent_path = tmpdir / 'agent_{}'.format(datetime.now().strftime("%H%M%S%f"))
-
-    agent_save = learn(StochasticAC_AVG)
-
-    agent_save.save(agent_path)
-    agent_load = Agent.load(agent_path)
-
-    for att, method in vars(agent_save).items():
-        save_attr = getattr(agent_save, att)
-        load_attr = getattr(agent_load, att)
-
-        tu.assert_eq(save_attr, load_attr)

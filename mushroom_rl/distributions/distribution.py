@@ -1,7 +1,4 @@
-from mushroom_rl.core import Serializable
-
-
-class Distribution(Serializable):
+class Distribution(object):
     """
     Interface for Distributions to represent a generic probability distribution.
     Probability distributions are often used by black box optimization
@@ -47,16 +44,6 @@ class Distribution(Serializable):
         """
         raise NotImplementedError
 
-    def entropy(self):
-        """
-        Compute the entropy of the distribution.
-
-        Returns:
-            The value of the entropy of the distribution.
-
-        """
-        raise NotImplementedError
-
     def mle(self, theta, weights=None):
         """
         Compute the (weighted) maximum likelihood estimate of the points,
@@ -77,12 +64,12 @@ class Distribution(Serializable):
 
     def diff_log(self, theta):
         """
-        Compute the derivative of the logarithm of the probability density
+        Compute the derivative of the gradient of the probability denstity
         function in the specified point.
 
         Args:
             theta (np.ndarray): the point where the gradient of the log pdf is
-            computed.
+            calculated
 
         Returns:
             The gradient of the log pdf in the specified point.

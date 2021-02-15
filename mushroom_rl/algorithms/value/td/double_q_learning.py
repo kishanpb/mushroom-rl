@@ -12,15 +12,11 @@ class DoubleQLearning(TD):
 
     """
     def __init__(self, mdp_info, policy, learning_rate):
-        Q = EnsembleTable(2, mdp_info.size)
+        self.Q = EnsembleTable(2, mdp_info.size)
 
-        super().__init__(mdp_info, policy, Q, learning_rate)
+        super().__init__(mdp_info, policy, self.Q, learning_rate)
 
-        self._alpha_double = [deepcopy(self._alpha), deepcopy(self._alpha)]
-
-        self._add_save_attr(
-            _alpha_double='primitive'
-        )
+        self.alpha = [deepcopy(self.alpha), deepcopy(self.alpha)]
 
         assert len(self.Q) == 2, 'The regressor ensemble must' \
                                  ' have exactly 2 models.'
@@ -39,7 +35,7 @@ class DoubleQLearning(TD):
         else:
             q_next = 0.
 
-        q = q_current + self._alpha_double[approximator_idx](state, action) * (
+        q = q_current + self.alpha[approximator_idx](state, action) * (
             reward + self.mdp_info.gamma * q_next - q_current)
 
         self.Q[approximator_idx][state, action] = q

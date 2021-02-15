@@ -1,6 +1,5 @@
 import numpy as np
 from joblib import Parallel, delayed
-from pathlib import Path
 
 from mushroom_rl.algorithms.value import QLearning, DoubleQLearning,\
     WeightedQLearning, SpeedyQLearning
@@ -23,9 +22,8 @@ def experiment(algorithm_class, exp):
     np.random.seed()
 
     # MDP
-    path = Path(__file__).resolve().parent / 'chain_structure'
-    p = np.load(path / 'p.npy')
-    rew = np.load(path / 'rew.npy')
+    p = np.load('chain_structure/p.npy')
+    rew = np.load('chain_structure/rew.npy')
     mdp = FiniteMDP(p, rew, gamma=.9)
 
     # Policy
@@ -38,7 +36,7 @@ def experiment(algorithm_class, exp):
     agent = algorithm_class(mdp.info, pi, **algorithm_params)
 
     # Algorithm
-    collect_Q = CollectQ(agent.Q)
+    collect_Q = CollectQ(agent.approximator)
     callbacks = [collect_Q]
     core = Core(agent, mdp, callbacks)
 
@@ -56,10 +54,6 @@ if __name__ == '__main__':
     names = {1: '1', .51: '51', QLearning: 'Q', DoubleQLearning: 'DQ',
              WeightedQLearning: 'WQ', SpeedyQLearning: 'SPQ'}
 
-    log_path = Path(__file__).resolve().parent / 'logs'
-
-    log_path.mkdir(parents=True, exist_ok=True)
-
     for e in [1, .51]:
         for a in [QLearning, DoubleQLearning, WeightedQLearning,
                   SpeedyQLearning]:
@@ -69,5 +63,4 @@ if __name__ == '__main__':
 
             Qs = np.mean(Qs, 0)
 
-            filename = names[a] + names[e] + '.npy'
-            np.save(log_path / filename, Qs[:, 0, 0])
+            np.save(names[a] + names[e] + '.npy', Qs[:, 0, 0])

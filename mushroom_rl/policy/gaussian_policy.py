@@ -45,12 +45,6 @@ class GaussianPolicy(AbstractGaussianPolicy):
         self._inv_sigma = np.linalg.inv(sigma)
         self._sigma = sigma
 
-        self._add_save_attr(
-            _approximator='mushroom',
-            _inv_sigma='numpy',
-            _sigma='numpy'
-        )
-
     def set_sigma(self, sigma):
         """
         Setter.
@@ -119,11 +113,6 @@ class DiagonalGaussianPolicy(AbstractGaussianPolicy):
         """
         self._approximator = mu
         self._std = std
-
-        self._add_save_attr(
-            _approximator='mushroom',
-            _std='numpy'
-        )
 
     def set_std(self, std):
         """
@@ -208,12 +197,6 @@ class StateStdGaussianPolicy(AbstractGaussianPolicy):
         self._std_approximator = std
         self._eps = eps
 
-        self._add_save_attr(
-            _mu_approximator='mushroom',
-            _std_approximator='mushroom',
-            _eps='primitive'
-        )
-
     def diff_log(self, state, action):
 
         mu, sigma, std = self._compute_multivariate_gaussian(state)
@@ -294,11 +277,6 @@ class StateLogStdGaussianPolicy(AbstractGaussianPolicy):
         """
         self._mu_approximator = mu
         self._log_std_approximator = log_std
-
-        self._add_save_attr(
-            _mu_approximator='mushroom',
-            _log_std_approximator='mushroom'
-        )
 
     def diff_log(self, state, action):
 

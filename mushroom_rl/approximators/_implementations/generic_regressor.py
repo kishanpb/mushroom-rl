@@ -1,7 +1,4 @@
-from mushroom_rl.core import Serializable
-
-
-class GenericRegressor(Serializable):
+class GenericRegressor:
     """
     This class is used to create a regressor that approximates a generic
     function. An arbitrary number of inputs and outputs is supported.
@@ -12,27 +9,22 @@ class GenericRegressor(Serializable):
         Constructor.
 
         Args:
-            approximator (class): the model class to approximate the
+            approximator (object): the model class to approximate the
                 a generic function;
             n_inputs (int): number of inputs of the regressor;
-            **params: parameters dictionary to the regressor;
+            **params (dict): parameters dictionary to the regressor;
 
         """
         self._n_inputs = n_inputs
         self.model = approximator(**params)
-
-        self._add_save_attr(
-            _n_inputs='primitive',
-            model=self._get_serialization_method(approximator)
-        )
 
     def fit(self, *z, **fit_params):
         """
         Fit the model.
 
         Args:
-            *z: list of inputs and targets;
-            **fit_params: other parameters used by the fit method of the
+            *z (list): list of inputs and targets;
+            **fit_params (dict): other parameters used by the fit method of the
                 regressor.
 
         """
@@ -44,7 +36,7 @@ class GenericRegressor(Serializable):
 
         Args:
             x (list): list of inputs;
-            **predict_params: other parameters used by the predict method
+            **predict_params (dict): other parameters used by the predict method
                 the regressor.
 
         Returns:

@@ -1,9 +1,8 @@
-**********
 MushroomRL
 **********
 
-.. image:: https://travis-ci.com/MushroomRL/mushroom-rl.svg?branch=dev
-   :target: https://travis-ci.com/MushroomRL/mushroom-rl
+.. image:: https://travis-ci.org/MushroomRL/mushroom-rl.svg?branch=master
+   :target: https://travis-ci.org/MushroomRL/mushroom-rl
 
 .. image:: https://readthedocs.org/projects/mushroomrl/badge/?version=latest
    :target: https://mushroomrl.readthedocs.io/en/latest/?badge=latest
@@ -31,7 +30,7 @@ It allows to perform RL experiments in a simple way providing classical RL algor
 (e.g. Q-Learning, SARSA, FQI), and deep RL algorithms (e.g. DQN, DDPG, SAC, TD3,
 TRPO, PPO).
 
-`Full documentation and tutorials available here <http://mushroomrl.readthedocs.io/en/latest/>`_.
+Full documentation available `here <http://mushroomrl.readthedocs.io/en/latest/>`_.
 
 Installation
 ============
@@ -40,7 +39,7 @@ You can do a minimal installation of ``MushroomRL`` with:
 
 .. code:: shell
 
-    pip3 install mushroom_rl
+	pip3 install mushroom_rl
 
 Installing everything
 ---------------------
@@ -49,53 +48,20 @@ You can install everything by running:
 
 .. code:: shell
 
-    pip3 install mushroom_rl[all]
+	pip3 install mushroom_rl '.[all]'
 
-This will install every dependency of MushroomRL, except MuJoCo and Plots dependencies.
-For ubuntu>20.04, you may need to install pygame and gym dependencies:
-
-.. code:: shell
-
-    sudo apt -y install libsdl-image1.2-dev libsdl-mixer1.2-dev libsdl-ttf2.0-dev \
-                     libsdl1.2-dev libsmpeg-dev libportmidi-dev ffmpeg libswscale-dev \
-                     libavformat-dev libavcodec-dev swig
-
+This will install every dependency of MushroomRL, except MuJoCo dependencies.
 To use the ``mujoco-py`` MushroomRL interface you can run the command:
 
 .. code:: shell
 
-    pip3 install mushroom_rl[mujoco]
-
-Below is the code that you need to run to install the Plots dependencies:
-
-.. code:: shell
-
-    sudo apt -y install python3-pyqt5
-    pip3 install mushroom_rl[plots]
+	pip3 install mushroom_rl '.[mujoco]'
 
 You might need to install external dependencies first. For more information about mujoco-py
 installation follow the instructions on the `project page <https://github.com/openai/mujoco-py>`_
 
 To use dm_control MushroomRL interface, install ``dm_control`` following the instruction that can
 be found `here <https://github.com/deepmind/dm_control>`_
-
-
-Editable Installation
----------------------
-
-You can also perform a local editable installation by using:
-
-.. code:: shell
-
-    pip install --no-use-pep517 -e .
-
-To install also optional dependencies:
-
-.. code:: shell
-
-    pip install --no-use-pep517 -e .[all]
-
-
 
 How to set and run and experiment
 =================================
@@ -108,23 +74,3 @@ For instance, to run a quick experiment with one of the provided example scripts
 .. code:: shell
 
     python3 examples/car_on_hill_fqi.py
-   
-Cite Mushroom
-=============
-If you are using mushroom for your scientific publications, please cite:
-
-.. code:: bibtex
-
-   @misc{deramo2020mushroomrl,
-         title={MushroomRL: Simplifying Reinforcement Learning Research},
-         author={D'Eramo, Carlo and Tateo, Davide and Bonarini, Andrea and Restelli, Marcello and Peters, Jan},
-         journal={arXiv preprint arXiv:2001.01102},
-         year={2020},
-         howpublished={\url{https://github.com/MushroomRL/mushroom-rl}}
-   }
-
-How to contact us
-=================
-For any question, drop an e-mail at mushroom4rl@gmail.com.
-
-Follow us on Twitter `@Mushroom_RL <https://twitter.com/mushroom_rl>`_!

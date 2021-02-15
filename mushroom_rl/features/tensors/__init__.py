@@ -1,5 +1,3 @@
-from .gaussian_tensor import GaussianRBFTensor
-from .constant_tensor import ConstantTensor
-from .random_fourier_tensor import RandomFourierBasis
+from .gaussian_tensor import PyTorchGaussianRBF
 
-__all_ = ['GaussianRBFTensor', 'ConstantTensor', 'RandomFourierBasis']
+__all_ = ['PyTorchGaussianRBF']

@@ -3,12 +3,13 @@ import numpy as np
 from mushroom_rl.algorithms.value import SARSALambdaContinuous
 from mushroom_rl.approximators.parametric import LinearApproximator
 from mushroom_rl.core import Core
+from mushroom_rl.environments import *
 from mushroom_rl.features import Features
 from mushroom_rl.features.tiles import Tiles
 from mushroom_rl.policy import EpsGreedy
 from mushroom_rl.utils.callbacks import CollectDataset
 from mushroom_rl.utils.parameters import Parameter
-from mushroom_rl.environments import Gym
+
 
 # MDP
 mdp = Gym(name='MountainCar-v0', horizon=np.inf, gamma=1.)
@@ -39,7 +40,7 @@ agent = SARSALambdaContinuous(mdp.info, pi, LinearApproximator,
 # Algorithm
 collect_dataset = CollectDataset()
 callbacks = [collect_dataset]
-core = Core(agent, mdp, callbacks_fit=callbacks)
+core = Core(agent, mdp, callbacks=callbacks)
 
 # Train
 core.learn(n_episodes=100, n_steps_per_fit=1)

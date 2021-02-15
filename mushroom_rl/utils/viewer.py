@@ -1,7 +1,3 @@
-import os
-if 'PYGAME_HIDE_SUPPORT_PROMPT' not in os.environ:
-    os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-
 import pygame
 import time
 import numpy as np
@@ -203,8 +199,8 @@ class Viewer:
     def force_arrow(self, center, direction, force, max_force,
                     max_length, color=(255, 255, 255), width=1):
         """
-        Draw a force arrow, i.e. an arrow representing a force. The
-        length of the arrow is directly proportional to the force value.
+        Draw a torque arrow, i.e. a circular arrow representing a torque. The
+        radius of the arrow is directly proportional to the torque value.
 
         Args:
             center (np.ndarray): the point where the force is applied;
@@ -227,8 +223,7 @@ class Viewer:
             delta = e - c
 
             pygame.draw.line(self.screen, color, c, e, width)
-            self.arrow_head(end, max_length / 4, np.arctan2(delta[1], delta[0]),
-                            color)
+            self.arrow_head(end, max_length / 4, np.arctan2(delta[1], delta[0]), color)
 
     def torque_arrow(self, center, torque, max_torque,
                      max_radius, color=(255, 255, 255), width=1):
@@ -274,17 +269,15 @@ class Viewer:
         surf = pygame.transform.smoothscale(surf, self.size)
         self.screen.blit(surf, (0, 0))
 
-    def function(self, x_s, x_e, f, n_points=100,  width=1, color=(255, 255, 255)):
+    def function(self, x_s, x_e, f, n_points=100,  width=1, color=(255,255,255)):
         """
         Draw the graph of a function in the image.
 
         Args:
             x_s (float): starting x coordinate;
             x_e (float): final x coordinate;
-            f (function): the function that maps x coorinates into y
-                coordinates;
-            n_points (int, 100): the number of segments used to approximate the
-                function to draw;
+            f (function): the function that maps x coorinates into y coordinates;
+            n_points (int, 100): the number of segments used to approximate the function to draw;
             width (int, 1): thw width of the line drawn;
             color (tuple, (255,255,255)): the color of the line.
 
@@ -321,7 +314,6 @@ class Viewer:
         return np.array([p[0] * self._ratio[0],
                          self._height - p[1] * self._ratio[1]]).astype(int)
 
-    @staticmethod
-    def _rotate(p, theta):
+    def _rotate(self, p, theta):
         return np.array([np.cos(theta) * p[0] - np.sin(theta) * p[1],
                          np.sin(theta) * p[0] + np.cos(theta) * p[1]])

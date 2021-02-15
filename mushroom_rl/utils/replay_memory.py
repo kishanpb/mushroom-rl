@@ -1,8 +1,7 @@
 import numpy as np
-from mushroom_rl.core import Serializable
 
 
-class ReplayMemory(Serializable):
+class ReplayMemory(object):
     """
     This class implements function to manage a replay memory as the one used in
     "Human-Level Control Through Deep Reinforcement Learning" by Mnih V. et al..
@@ -22,19 +21,6 @@ class ReplayMemory(Serializable):
         self._max_size = max_size
 
         self.reset()
-
-        self._add_save_attr(
-            _initial_size='primitive',
-            _max_size='primitive',
-            _idx='primitive!',
-            _full='primitive!',
-            _states='pickle!',
-            _actions='pickle!',
-            _rewards='pickle!',
-            _next_states='pickle!',
-            _absorbing='pickle!',
-            _last='pickle!'
-        )
 
     def add(self, dataset):
         """
@@ -117,10 +103,6 @@ class ReplayMemory(Serializable):
 
         """
         return self._idx if not self._full else self._max_size
-
-    def _post_load(self):
-        if self._full is None:
-            self.reset()
 
 
 class SumTree(object):
@@ -246,7 +228,7 @@ class SumTree(object):
         return self._tree[0]
 
 
-class PrioritizedReplayMemory(Serializable):
+class PrioritizedReplayMemory(object):
     """
     This class implements function to manage a prioritized replay memory as the
     one used in "Prioritized Experience Replay" by Schaul et al., 2015.
@@ -273,15 +255,6 @@ class PrioritizedReplayMemory(Serializable):
         self._epsilon = epsilon
 
         self._tree = SumTree(max_size)
-
-        self._add_save_attr(
-            _initial_size='primitive',
-            _max_size='primitive',
-            _alpha='primitive',
-            _beta='primitive',
-            _epsilon='primitive',
-            _tree='pickle!'
-        )
 
     def add(self, dataset, p):
         """
@@ -372,7 +345,3 @@ class PrioritizedReplayMemory(Serializable):
 
         """
         return self._tree.max_p if self.initialized else 1.
-
-    def _post_load(self):
-        if self._tree is None:
-            self._tree = SumTree(self._max_size)
