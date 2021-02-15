@@ -3,11 +3,8 @@ dist/
 mushroom_rl.egg-info/
 .idea/
 *.pyc
-*.pyd
 *.xml
 logs/
 *.h5
 .pytest_cache
 .coverage*
-*.c
-*.so

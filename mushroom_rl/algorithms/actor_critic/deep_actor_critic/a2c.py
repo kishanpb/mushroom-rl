@@ -5,7 +5,6 @@ from mushroom_rl.approximators import Regressor
 from mushroom_rl.approximators.parametric import TorchApproximator
 from mushroom_rl.utils.value_functions import compute_advantage_montecarlo
 from mushroom_rl.utils.dataset import parse_dataset
-from mushroom_rl.utils.parameters import to_parameter
 from mushroom_rl.utils.torch import to_float_tensor
 
 from copy import deepcopy
@@ -30,7 +29,7 @@ class A2C(DeepAC):
                 algorithm;
             critic_params (dict): parameters of the critic approximator to
                 build;
-            ent_coeff ((float, Parameter), 0): coefficient for the entropy penalty;
+            ent_coeff (float, 0): coefficient for the entropy penalty;
             max_grad_norm (float, None): maximum norm for gradient clipping.
                 If None, no clipping will be performed, unless specified
                 otherwise in actor_optimizer;
@@ -40,7 +39,7 @@ class A2C(DeepAC):
         """
         self._critic_fit_params = dict() if critic_fit_params is None else critic_fit_params
 
-        self._entropy_coeff = to_parameter(ent_coeff)
+        self._entropy_coeff = ent_coeff
 
         self._V = Regressor(TorchApproximator, **critic_params)
 
@@ -49,12 +48,6 @@ class A2C(DeepAC):
             clipping_params = dict(max_norm=max_grad_norm, norm_type=2)
             actor_optimizer['clipping'] = dict(
                 method=torch.nn.utils.clip_grad_norm_, params=clipping_params)
-
-        self._add_save_attr(
-            _critic_fit_params='pickle',
-            _entropy_coeff='mushroom',
-            _V='mushroom'
-        )
 
         super().__init__(mdp_info, policy, actor_optimizer, policy.parameters())
 
@@ -80,7 +73,4 @@ class A2C(DeepAC):
         gradient_loss = -torch.mean(self.policy.log_prob_t(s, a)*adv_t)
         entropy_loss = -self.policy.entropy_t(s)
 
-        return gradient_loss + self._entropy_coeff() * entropy_loss
-
-    def _post_load(self):
-        self._update_optimizer_parameters(self.policy.parameters())
+        return gradient_loss + self._entropy_coeff * entropy_loss

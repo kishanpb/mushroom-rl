@@ -9,7 +9,6 @@ from mushroom_rl.approximators import Regressor
 from mushroom_rl.approximators.parametric import TorchApproximator
 from mushroom_rl.utils.replay_memory import ReplayMemory
 from mushroom_rl.utils.torch import to_float_tensor
-from mushroom_rl.utils.parameters import to_parameter
 
 from copy import deepcopy
 from itertools import chain
@@ -24,8 +23,7 @@ class SACPolicy(Policy):
     the internals calculations of the SAC algorithm.
 
     """
-    def __init__(self, mu_approximator, sigma_approximator, min_a, max_a,
-                 log_std_min, log_std_max):
+    def __init__(self, mu_approximator, sigma_approximator, min_a, max_a):
         """
         Constructor.
 
@@ -38,8 +36,6 @@ class SACPolicy(Policy):
                 for each component;
             max_a (np.ndarray): a vector specifying the maximum action value
                 for each component.
-            log_std_min ((float, Parameter)): min value for the policy log std;
-            log_std_max ((float, Parameter)): max value for the policy log std.
 
         """
         self._mu_approximator = mu_approximator
@@ -48,26 +44,11 @@ class SACPolicy(Policy):
         self._delta_a = to_float_tensor(.5 * (max_a - min_a), self.use_cuda)
         self._central_a = to_float_tensor(.5 * (max_a + min_a), self.use_cuda)
 
-        self._log_std_min = to_parameter(log_std_min)
-        self._log_std_max = to_parameter(log_std_max)
-
-        self._eps_log_prob = 1e-6
-
         use_cuda = self._mu_approximator.model.use_cuda
 
         if use_cuda:
             self._delta_a = self._delta_a.cuda()
             self._central_a = self._central_a.cuda()
-
-        self._add_save_attr(
-            _mu_approximator='mushroom',
-            _sigma_approximator='mushroom',
-            _delta_a='torch',
-            _central_a='torch',
-            _log_std_min='mushroom',
-            _log_std_max='mushroom',
-            _eps_log_prob='primitive'
-        )
 
     def __call__(self, state, action):
         raise NotImplementedError
@@ -113,7 +94,7 @@ class SACPolicy(Policy):
 
         if compute_log_prob:
             log_prob = dist.log_prob(a_raw).sum(dim=1)
-            log_prob -= torch.log(1. - a.pow(2) + self._eps_log_prob).sum(dim=1)
+            log_prob -= torch.log(1. - a.pow(2) + 1e-6).sum(dim=1)
             return a_true, log_prob
         else:
             return a_true
@@ -132,23 +113,7 @@ class SACPolicy(Policy):
         """
         mu = self._mu_approximator.predict(state, output_tensor=True)
         log_sigma = self._sigma_approximator.predict(state, output_tensor=True)
-        # Bound the log_std
-        log_sigma = torch.clamp(log_sigma, self._log_std_min(), self._log_std_max())
         return torch.distributions.Normal(mu, log_sigma.exp())
-
-    def entropy(self, state=None):
-        """
-        Compute the entropy of the policy.
-
-        Args:
-            state (np.ndarray): the set of states to consider.
-
-        Returns:
-            The value of the entropy of the policy.
-
-        """
-
-        return torch.mean(self.distribution(state).entropy()).detach().cpu().numpy().item()
 
     def reset(self):
         pass
@@ -188,18 +153,6 @@ class SACPolicy(Policy):
         """
         return self._mu_approximator.model.use_cuda
 
-    def parameters(self):
-        """
-        Returns the trainable policy parameters, as expected by torch
-        optimizers.
-
-        Returns:
-            List of parameters to be optimized.
-
-        """
-        return chain(self._mu_approximator.model.network.parameters(),
-                     self._sigma_approximator.model.network.parameters())
-
 
 class SAC(DeepAC):
     """
@@ -211,8 +164,7 @@ class SAC(DeepAC):
     def __init__(self, mdp_info, actor_mu_params, actor_sigma_params,
                  actor_optimizer, critic_params, batch_size,
                  initial_replay_size, max_replay_size, warmup_transitions, tau,
-                 lr_alpha, log_std_min=-20, log_std_max=2, target_entropy=None,
-                 critic_fit_params=None):
+                 lr_alpha, target_entropy=None, critic_fit_params=None):
         """
         Constructor.
 
@@ -225,17 +177,15 @@ class SAC(DeepAC):
                 optimizer algorithm;
             critic_params (dict): parameters of the critic approximator to
                 build;
-            batch_size ((int, Parameter)): the number of samples in a batch;
+            batch_size (int): the number of samples in a batch;
             initial_replay_size (int): the number of samples to collect before
                 starting the learning;
             max_replay_size (int): the maximum number of samples in the replay
                 memory;
-            warmup_transitions ((int, Parameter)): number of samples to accumulate in the
+            warmup_transitions (int): number of samples to accumulate in the
                 replay memory to start the policy fitting;
-            tau ((float, Parameter)): value of coefficient for soft updates;
-            lr_alpha ((float, Parameter)): Learning rate for the entropy coefficient;
-            log_std_min ((float, Parameter)): Min value for the policy log std;
-            log_std_max ((float, Parameter)): Max value for the policy log std;
+            tau (float): value of coefficient for soft updates;
+            lr_alpha (float): Learning rate for the entropy coefficient;
             target_entropy (float, None): target entropy for the policy, if
                 None a default value is computed ;
             critic_fit_params (dict, None): parameters of the fitting algorithm
@@ -244,9 +194,9 @@ class SAC(DeepAC):
         """
         self._critic_fit_params = dict() if critic_fit_params is None else critic_fit_params
 
-        self._batch_size = to_parameter(batch_size)
-        self._warmup_transitions = to_parameter(warmup_transitions)
-        self._tau = to_parameter(tau)
+        self._batch_size = batch_size
+        self._warmup_transitions = warmup_transitions
+        self._tau = tau
 
         if target_entropy is None:
             self._target_entropy = -np.prod(mdp_info.action_space.shape).astype(np.float32)
@@ -274,9 +224,7 @@ class SAC(DeepAC):
         policy = SACPolicy(actor_mu_approximator,
                            actor_sigma_approximator,
                            mdp_info.action_space.low,
-                           mdp_info.action_space.high,
-                           log_std_min,
-                           log_std_max)
+                           mdp_info.action_space.high)
 
         self._init_target(self._critic_approximator,
                           self._target_critic_approximator)
@@ -292,29 +240,15 @@ class SAC(DeepAC):
 
         policy_parameters = chain(actor_mu_approximator.model.network.parameters(),
                                   actor_sigma_approximator.model.network.parameters())
-
-        self._add_save_attr(
-            _critic_fit_params='pickle',
-            _batch_size='mushroom',
-            _warmup_transitions='mushroom',
-            _tau='mushroom',
-            _target_entropy='primitive',
-            _replay_memory='mushroom',
-            _critic_approximator='mushroom',
-            _target_critic_approximator='mushroom',
-            _log_alpha='torch',
-            _alpha_optim='torch'
-        )
-
         super().__init__(mdp_info, policy, actor_optimizer, policy_parameters)
 
     def fit(self, dataset):
         self._replay_memory.add(dataset)
         if self._replay_memory.initialized:
             state, action, reward, next_state, absorbing, _ = \
-                self._replay_memory.get(self._batch_size())
+                self._replay_memory.get(self._batch_size)
 
-            if self._replay_memory.size > self._warmup_transitions():
+            if self._replay_memory.size > self._warmup_transitions:
                 action_new, log_prob = self.policy.compute_action_and_log_prob_t(state)
                 loss = self._loss(state, action_new, log_prob)
                 self._optimize_actor_parameters(loss)
@@ -365,9 +299,6 @@ class SAC(DeepAC):
         q *= 1 - absorbing
 
         return q
-
-    def _post_load(self):
-        self._update_optimizer_parameters(self.policy.parameters())
 
     @property
     def _alpha(self):

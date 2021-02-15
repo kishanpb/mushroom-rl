@@ -12,12 +12,10 @@ class SpeedyQLearning(TD):
 
     """
     def __init__(self, mdp_info, policy, learning_rate):
-        Q = Table(mdp_info.size)
-        self.old_q = deepcopy(Q)
+        self.Q = Table(mdp_info.size)
+        self.old_q = deepcopy(self.Q)
 
-        self._add_save_attr(old_q='mushroom')
-
-        super().__init__(mdp_info, policy, Q, learning_rate)
+        super().__init__(mdp_info, policy, self.Q, learning_rate)
 
     def _update(self, state, action, reward, next_state, absorbing):
         old_q = deepcopy(self.Q)
@@ -28,7 +26,7 @@ class SpeedyQLearning(TD):
         target_cur = reward + self.mdp_info.gamma * max_q_cur
         target_old = reward + self.mdp_info.gamma * max_q_old
 
-        alpha = self._alpha(state, action)
+        alpha = self.alpha(state, action)
         q_cur = self.Q[state, action]
         self.Q[state, action] = q_cur + alpha * (target_old - q_cur) + (
             1. - alpha) * (target_cur - target_old)

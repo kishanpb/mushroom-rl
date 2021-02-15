@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 from mushroom_rl.algorithms.actor_critic import COPDAC_Q
-from mushroom_rl.core import Core, Logger
+from mushroom_rl.core import Core
 from mushroom_rl.environments import *
 from mushroom_rl.features import Features
 from mushroom_rl.features.tiles import Tiles
@@ -14,8 +14,7 @@ from mushroom_rl.utils.dataset import compute_J
 from mushroom_rl.utils.parameters import Parameter
 from mushroom_rl.utils.callbacks import CollectDataset
 
-from tqdm import tqdm, trange
-
+from tqdm import tqdm
 tqdm.monitor_interval = 0
 
 
@@ -92,10 +91,6 @@ class Display:
 def experiment(n_epochs, n_episodes):
     np.random.seed()
 
-    logger = Logger(COPDAC_Q.__name__, results_dir=None)
-    logger.strong_line()
-    logger.info('Experiment Algorithm: ' + COPDAC_Q.__name__)
-
     # MDP
     n_steps = 5000
     mdp = InvertedPendulum(horizon=n_steps)
@@ -130,17 +125,18 @@ def experiment(n_epochs, n_episodes):
                                      mdp.info.observation_space.low,
                                      mdp.info.observation_space.high,
                                      phi, phi)
-    core = Core(agent, mdp, callbacks_fit=[dataset_callback])
+    core = Core(agent, mdp, callbacks=[dataset_callback])
 
-    for i in trange(n_epochs, leave=False):
+    for i in range(n_epochs):
         core.learn(n_episodes=n_episodes,
                    n_steps_per_fit=1, render=False)
         J = compute_J(dataset_callback.get(), gamma=1.0)
         dataset_callback.clean()
         visualization_callback()
-        logger.epoch_info(i+1, R_mean=np.sum(J) / n_steps/n_episodes)
+        print('Mean Reward at iteration ' + str(i) + ': ' +
+              str(np.sum(J) / n_steps / n_episodes))
 
-    logger.info('Press a button to visualize the pendulum...')
+    print('Press a button to visualize the pendulum...')
     input()
     sigma = 1e-8 * np.eye(1)
     policy.set_sigma(sigma)

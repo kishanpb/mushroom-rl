@@ -7,7 +7,7 @@ from joblib import Parallel, delayed
 
 from mushroom_rl.algorithms.value import QLearning, DoubleQLearning,\
     WeightedQLearning, SpeedyQLearning, SARSA
-from mushroom_rl.core import Core, Logger
+from mushroom_rl.core import Core
 from mushroom_rl.environments import *
 from mushroom_rl.policy import EpsGreedy
 from mushroom_rl.utils.callbacks import CollectDataset, CollectMaxQ
@@ -42,7 +42,7 @@ def experiment(algorithm_class, exp):
 
     # Algorithm
     start = mdp.convert_to_int(mdp._start, mdp._width)
-    collect_max_Q = CollectMaxQ(agent.Q, start)
+    collect_max_Q = CollectMaxQ(agent.approximator, start)
     collect_dataset = CollectDataset()
     callbacks = [collect_dataset, collect_max_Q]
     core = Core(agent, mdp, callbacks)
@@ -59,21 +59,17 @@ def experiment(algorithm_class, exp):
 if __name__ == '__main__':
     n_experiment = 10000
 
-    logger = Logger(QLearning.__name__, results_dir=None)
-    logger.strong_line()
-    logger.info('Experiment Algorithm: ' + QLearning.__name__)
-
     names = {1: '1', .8: '08', QLearning: 'Q', DoubleQLearning: 'DQ',
              WeightedQLearning: 'WQ', SpeedyQLearning: 'SPQ', SARSA: 'SARSA'}
 
     for e in [1, .8]:
-        logger.info('Exp: ', e)
+        print('Exp: ', e)
         fig = plt.figure()
         plt.suptitle(names[e])
         legend_labels = []
         for a in [QLearning, DoubleQLearning, WeightedQLearning,
                   SpeedyQLearning, SARSA]:
-            logger.info('Alg: ', names[a])
+            print('Alg: ', names[a])
             out = Parallel(n_jobs=-1)(
                 delayed(experiment)(a, e) for _ in range(n_experiment))
             r = np.array([o[0] for o in out])

@@ -11,23 +11,17 @@ class PolicyGradient(Agent):
     al.. 2011.
 
     """
-    def __init__(self, mdp_info, policy, optimizer, features):
+    def __init__(self, mdp_info, policy, learning_rate, features):
         """
         Constructor.
 
         Args:
-            optimizer: the gradient optimizer.
+            learning_rate (float): the learning rate.
 
         """
-        self.optimizer = optimizer
+        self.learning_rate = learning_rate
         self.df = 1
         self.J_episode = 0
-
-        self._add_save_attr(
-            optimizer='mushroom',
-            df='numpy',
-            J_episode='numpy'
-        )
 
         super().__init__(mdp_info, policy, features)
 
@@ -62,15 +56,16 @@ class PolicyGradient(Agent):
         """
         res = self._compute_gradient(J)
 
-        theta_old = self.policy.get_weights()
+        theta = self.policy.get_weights()
 
         if len(res) == 1:
             grad = res[0]
-            theta_new = self.optimizer(theta_old, grad)
+            delta = self.learning_rate(grad) * grad
         else:
             grad, nat_grad = res
-            theta_new = self.optimizer(theta_old, grad, nat_grad)
+            delta = self.learning_rate(grad, nat_grad) * nat_grad
 
+        theta_new = theta + delta
         self.policy.set_weights(theta_new)
 
     def _init_update(self):

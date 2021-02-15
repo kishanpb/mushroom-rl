@@ -1,9 +1,7 @@
 import numpy as np
 
-from mushroom_rl.core import Serializable
 
-
-class ActionRegressor(Serializable):
+class ActionRegressor:
     """
     This class is used to approximate the Q-function with a different
     approximator of the provided class for each action. It is often used in MDPs
@@ -16,12 +14,12 @@ class ActionRegressor(Serializable):
         Constructor.
 
         Args:
-            approximator (class): the model class to approximate the
+            approximator (object): the model class to approximate the
                 Q-function of each action;
             n_actions (int): number of different actions of the problem. It
                 determines the number of different regressors in the action
                 regressor;
-            **params: parameters dictionary to create each regressor.
+            **params (dict): parameters dictionary to create each regressor.
 
         """
         self.model = list()
@@ -29,11 +27,6 @@ class ActionRegressor(Serializable):
 
         for i in range(self._n_actions):
             self.model.append(approximator(**params))
-
-        self._add_save_attr(
-            _n_actions='primitive',
-            model=self._get_serialization_method(approximator)
-        )
 
     def fit(self, state, action, q, **fit_params):
         """
@@ -43,7 +36,7 @@ class ActionRegressor(Serializable):
             state (np.ndarray): states;
             action (np.ndarray): actions;
             q (np.ndarray): target q-values;
-            **fit_params: other parameters used by the fit method
+            **fit_params (dict): other parameters used by the fit method
                 of each regressor.
 
         """
@@ -58,10 +51,10 @@ class ActionRegressor(Serializable):
         Predict.
 
         Args:
-            *z: a list containing states or states and actions depending
+            *z (list): a list containing states or states and actions depending
                 on whether the call requires to predict all q-values or only
                 one q-value corresponding to the provided action;
-            **predict_params: other parameters used by the predict method
+            **predict_params (dict): other parameters used by the predict method
                 of each regressor.
 
         Returns:
@@ -125,9 +118,9 @@ class ActionRegressor(Serializable):
 
             return diff
         else:
+            diff = np.zeros(len(state) * len(self.model))
             a = action[0]
-            s = self.model[a].weights_size
-            diff = np.zeros(s * len(self.model))
+            s = len(state)
             diff[s * a:s * (a + 1)] = self.model[a].diff(state)
 
             return diff

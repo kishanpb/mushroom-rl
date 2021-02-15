@@ -26,8 +26,7 @@ class LQR(Environment):
 
     """
     def __init__(self, A, B, Q, R, max_pos=np.inf, max_action=np.inf,
-                 random_init=False, episodic=False, gamma=0.9, horizon=50,
-                 initial_state=None):
+                 random_init=False, episodic=False, gamma=0.9, horizon=50):
         """
         Constructor.
 
@@ -54,8 +53,6 @@ class LQR(Environment):
         self._episodic = episodic
         self.random_init = random_init
 
-        self._initial_state = initial_state
-
         # MDP properties
         high_x = self._max_pos * np.ones(A.shape[0])
         low_x = -high_x
@@ -70,22 +67,19 @@ class LQR(Environment):
         super().__init__(mdp_info)
 
     @staticmethod
-    def generate(dimensions=None, s_dim=None, a_dim=None, max_pos=np.inf, max_action=np.inf, eps=.1,
-                 index=0, scale=1.0, random_init=False, episodic=False,
-                 gamma=.9, horizon=50, initial_state=None):
+    def generate(dimensions, max_pos=np.inf, max_action=np.inf, eps=.1,
+                 index=0, random_init=False, episodic=False, gamma=.9,
+                 horizon=50):
         """
         Factory method that generates an lqr with identity dynamics and
         symmetric reward matrices.
 
         Args:
             dimensions (int): number of state-action dimensions;
-            s_dim (int): number of state dimensions;
-            a_dim (int): number of action dimensions;
             max_pos (float, np.inf): maximum value of the state;
             max_action (float, np.inf): maximum value of the action;
             eps (double, .1): reward matrix weights specifier;
             index (int, 0): selector for the principal state;
-            scale (float, 1.0): scaling factor for the reward function;
             random_init (bool, False): start from a random state;
             episodic (bool, False): end the episode when the state goes over the
                 threshold;
@@ -93,36 +87,25 @@ class LQR(Environment):
             horizon (int, 50): horizon of the mdp.
 
         """
-        assert dimensions != None or (s_dim != None and a_dim != None)
+        assert dimensions >= 1
 
-        if s_dim == None or a_dim == None:
-            s_dim = dimensions
-            a_dim = dimensions
-        A = np.eye(s_dim)
-        B = np.eye(s_dim, a_dim)
-        Q = eps * np.eye(s_dim) * scale
-        R = (1. - eps) * np.eye(a_dim) * scale
+        A = np.eye(dimensions)
+        B = np.eye(dimensions)
+        Q = eps * np.eye(dimensions)
+        R = (1. - eps) * np.eye(dimensions)
 
-        Q[index, index] = (1. - eps) * scale
-        R[index, index] = eps * scale
+        Q[index, index] = 1. - eps
+        R[index, index] = eps
 
         return LQR(A, B, Q, R, max_pos, max_action, random_init, episodic,
-                   gamma, horizon, initial_state)
+                   gamma, horizon)
 
     def reset(self, state=None):
         if state is None:
             if self.random_init:
-                self._state = self._bound(
-                    np.random.uniform(-3, 3, size=self.A.shape[0]),
-                    self.info.observation_space.low,
-                    self.info.observation_space.high
-                )
-            elif self._initial_state is not None:
-                self._state = self._initial_state
+                self._state = np.random.uniform(-3, 3, size=self.A.shape[0])
             else:
-                init_value = .9 * self._max_pos if np.isfinite(
-                    self._max_pos) else 10
-                self._state = init_value * np.ones(self.A.shape[0])
+                self._state = 10. * np.ones(self.A.shape[0])
         else:
             self._state = state
 
@@ -130,21 +113,19 @@ class LQR(Environment):
 
     def step(self, action):
         x = self._state
-        u = self._bound(action, self.info.action_space.low,
-                        self.info.action_space.high)
+        u = self._bound(action, self.info.action_space.low, self.info.action_space.high)
 
         reward = -(x.dot(self.Q).dot(x) + u.dot(self.R).dot(u))
         self._state = self.A.dot(x) + self.B.dot(u)
 
-        absorbing = False
-
-        if np.any(np.abs(self._state) > self._max_pos):
+        if np.any(self._state > self._max_pos):
             if self._episodic:
-                reward = -self._max_pos ** 2 * 10
                 absorbing = True
             else:
                 self._state = self._bound(self._state,
                                           self.info.observation_space.low,
                                           self.info.observation_space.high)
+        else:
+            absorbing = False
 
         return self._state, reward, absorbing, {}

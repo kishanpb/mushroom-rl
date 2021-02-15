@@ -1,13 +1,8 @@
-package: 
-	python3 setup.py sdist
+package:
+	python3 setup.py sdist bdist_wheel
 
-
-install: 
-	pip install $(shell ls dist/*.tar.gz)
-
-all: clean package install
-
-upload:
+all:
+	package
 	python3 -m twine upload dist/*
 
 clean:

@@ -1,16 +1,12 @@
 Algorithms:
-    * Policy Search:
-        - Natural gradient
-        - NES
-        - Constrained REPS
-        - MORE
-        - PAPI
+    a) Policy search:
+        * Policy gradient:
+            - fix step based gradient interface
+            - Natural gradient
+            - NES
 
-For Mushroom 2.0:
-    * Record method in environemnt and record option in the core
-    * Simplify Regressor interface: drop GenericRegressor, remove facade pattern
-    * vectorize basis functions and simplify interface, simplify facade pattern
-    * remove custom save for plotting, use Serializable
-    * support multi-objective RL
-    * Register environments to build them from string with default parameters
-    * Improve replay memory, allowing to store arbitrary information into replay buffer
+    b) Value based:
+        * Q Lambda
+
+Various:
+    * Fix get_value() in Parameters such that an exception is raised when the parameter value is returned as slice.
